@@ -1,0 +1,295 @@
+---
+title: "Projekt1.0"
+author: "Bartłomiej Kalata"
+date: "25 kwietnia 2019"
+output: html_document
+runtime: shiny
+---
+
+```{r echo=FALSE, message=FALSE}
+#załadowanie bibliotek
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tseries)
+```
+
+# Wprowadzenie i hipotezy:
+
+
+W projekcie zostanie zbadana moc wybranych testów na normalność rozkładu.
+Dane pochodzić będą z rozkładu t-Studenta.
+Analiza wyników tych testów opierać się będzie o następujące parametry:
+
++ Długości próby.
++ Ilości stopni swobody w rozkładzie t.
++ Poziomu istotności wybranego testu.
+
+W projekcie zostaną użyte trzy testy badające normalność rozkładu:
+
++ Jarque-Bera
++ Shapiro-Wilka
++ Kołmogorowa
+
+***
+
+##Test Jarque-Bera
+
+W statystyce test ten sprawdza przy pomocy statystyki Jarque-Bera normalność rozkładu.
+Statystyka ta jest wspólna dla współczynnika skośności oraz dla kurtozy.
+Wyniki z niej są zawsze nieujemne. Jeżeli są one dalekie od zera, sygnalizuje to że dane nie mają normalnego rozkładu. Najczęsciej jest test ten używany jest dla dużej próbki. Hipotezą zerową w tym teście jest stwierdzenie, że próba pochodzi z rozkładu normalnego.
+
+***
+
+## Test Shapiro-Wilka
+Test Shapiro-Wilka sprawdza w hipotezie zerowej czy próbka *x1,.....,xn* pochodzi z rozkłądu normalnego. Jest to preferowany test na normalność rozkładu ze względu na jego moc w porównaniu z innymi alternatywnymi testami. Test ten bazuje na spostrzeżeniu, iż analizując dopasowanie próbnego zbioru danych do rozkładu normalnego jest podobne do zadania liniowej regresji - linia diagonalna jest linią idealnego dopasowania, zaś wszystkie odchylenia od niej są podobne do residuów w zadaniu regresji. I właśnie analizując skalę tych odchyleń można określić jakość dopasowania. Dla dużej próbki nie będzie więc on bardzo wiarygodnym testem.
+
+***
+
+## Test Kołmogorowa-Smirnowa
+
+Test Kołmogorowa-Smirnowa w statystyce jest nieparametrycznym testem, któy bazuje na maksymalnej różnicy pomiędzy rozkładem cechy *x* z hipotetycznym rozkładem *y*.
+W projekcie hipotetycznym rozkładem jest rozkład normalny.
+W teście Kołmogorowa hipotezą zerowa oznacza że, dwie porównywane próby mają taki sam rozkład.Dla dużych zbiorów danych ze względu na centralne twierdzenie graniczne,  t-test powinien pozwalać na poprawne wyniki nawet w sytuacji dużego odstępstwa od rozkładu normalnego. 
+
+***
+
+## Hipotezy:
+
++ ___Zmiana długości próby:___  
+H0: wraz ze zwiększaniem długości próby, test staje się mocniejszy. 
+H1: wraz ze zwiększaniem długości próby, test staje się słabszy.
+
++ ___Zmiana ilości stopni swobody:___  
+H0: wraz ze zwiększaniem ilosci stopni swobody, test staje się słabszy.   
+H1: wraz ze zwiększaniem ilości stopni swobody, test staje się mocniejszy. 
+
++ ___Zmiana poziomu istotności:___  
+H0: wraz ze zwiekszaniem poziomu istotności, test staje się mocniejszy. 
+H1: wraz ze zwiekszaniem poziomu istotności, test staje się słabszy.  
+
+***
+
+##Parametry o które zostanie oparta analiza zostaną wczytane jako wektory zmiennych.
+
++ ___alpha___ - Długości próby.
++ ___stp_swb___- Ilości stopni swobody w rozkładzie t.
++ ___sample_length___ - Poziomu istotności wybranego testu.
+
+***
+
+#Wizualizacja:
+
+###Wczytanie parametrów próbki pochodzącej z rozkładu t-Studenta:
+
+```{r}
+#Liczba Symulacji
+N<- 500
+#Poziom Istotnosci
+alpha<- c(0.01, 0.05, 0.1, 0.2)
+#Stopnie Swobody
+stp_swb<-seq(1,15, by=1)
+#Długość Próby
+sample_length<-seq(15,30, by=1)
+```
+
+###Ramka danych:
+Funkcja ___expand grid___
+Tworzy ramkę danych ze wszystkich kombinacji dostarczonych wektorów lub czynników. 
+
+```{r}
+frames<-expand.grid( Stopnie_Swobody=stp_swb,Poziom_Istotnosci=alpha,Dlugosc_Proby=sample_length)
+```
+
+### Podgląd danych:
+```{r}
+head(frames)
+```
+
+###Opis algorytmu:
+Dla każdego wiersza w ramce danych ___frames___ obliczana jest moc testu. Aby w następnej kolejności stworzyć ramkę danych z wszystkimi wynikami wynik zapisywany jest do wektora, odpowiednio *Jarque_Bera*,*Kolmogorow*,*Shapiro-Wilk*.
+
+
+### Test Jarque-Bera:
+```{r}
+set.seed(35)
+Jarque_Bera<- sapply(1:nrow(frames),
+                 function(i){
+                   st_sw <- frames[i, 1]
+                   alphy <- frames[i, 2]
+                   sample_lengths <- frames[i, 3]
+                   pvalue <- sapply(rep(st_sw, N), function(x){
+                     my_sample <- rt(sample_lengths, st_sw)
+                     jarque.bera.test(my_sample)$p.value
+                   })
+                   mean(pvalue < alpha)
+                 })
+
+```
+
+### Test Kołmogorow-Smirnova:
+```{r}
+set.seed(35)
+Kolmogorow <- sapply(1:nrow(frames),
+                 function(i){
+                   st_sw <- frames[i, 1]
+                   alphy <- frames[i, 2]
+                   sample_lengths <- frames[i, 3]
+                   pvalue <- sapply(rep(st_sw, N), function(x){
+                     my_sample <- rt(sample_lengths, st_sw)
+                     ks.test(my_sample, pnorm)$p.value
+                   })
+                   mean(pvalue < alpha)
+                 })
+
+```
+
+### Test Shapiro-Wilka:
+```{r}
+Shapiro_Wilk<-sapply(1:nrow(frames),function(i){
+                   st_sw <- frames[i, 1]
+                   alphy <- frames[i, 2]
+                   sample_lengths <- frames[i, 3]
+                   pvalue<-sapply(rep(st_sw,N),function(x){
+                     my_sample<-rt(sample_lengths,st_sw)
+                     shapiro.test(my_sample)$p.value
+                   })
+                   mean(pvalue<alpha)
+})
+
+```
+
+###Stworzenie ramki danych z wszystkimi wynikami:
+```{r}
+frames_test<-bind_cols(frames,Moc_Testu_Jarque_Berq=Jarque_Bera,Moc_Testu_Kolomogorowa=Kolmogorow,Moc_Testu_Shapiro_Wilka = Shapiro_Wilk)
+head(frames_test)
+```
+
+### Wizualizacja każdego z testów
+
+###Jarque-Bera:
+```{r echo= FALSE}
+JB<-ggplot(frames_test)+geom_line(aes(x=Stopnie_Swobody,y=Moc_Testu_Jarque_Berq,color = factor(Dlugosc_Proby)))+labs(title="Moc Testu Jarque-Berq", x="Stopnie Swobody", y="Moc Testu", color="Dlugosc Proby")+ facet_wrap(~ Poziom_Istotnosci, nrow = 2)
+
+JB
+```
+
+###Kołmogorowa-Smirnova:
+```{r echo=FALSE}
+KOL<-ggplot(frames_test)+geom_line(aes(x=Stopnie_Swobody,y=Moc_Testu_Kolomogorowa,color = factor(Dlugosc_Proby)))+labs(title="Moc Testu Kolmogorowa", x="Stopnie Swobody", y="Moc Testu",color="Dlugosc Proby")+ facet_wrap(~ Poziom_Istotnosci, nrow = 2)
+
+KOL
+```
+
+###Shapiro-Wilka:
+```{r echo= FALSE}
+SW<-ggplot(frames_test)+geom_line(aes(x=Stopnie_Swobody,y=Moc_Testu_Shapiro_Wilka,color = factor(Dlugosc_Proby)))+labs(title="Moc Testu Shapiro Wilka", x="Stopnie Swobody", y="Moc Testu",color="Dlugosc Proby")+ facet_wrap(~ Poziom_Istotnosci, nrow = 2)
+
+SW
+```
+
+
+
+###Aplikacja z interaktywnym zestawienie trzech testów na podstawie której zostaną oparte wnioski:
+```{r eruptions, echo=FALSE}
+library(shiny)
+library(shinythemes)
+
+ui <- fluidPage(
+  shinyUI(fluidPage(theme=shinytheme("flatly"),
+  titlePanel("Porównanie mocy trzech testów JB SH Kołmogorowa"),
+  navbarPage("MENU",
+             tabPanel("Zestawienie trzech testów",
+                      titlePanel(textOutput("WYKRES")),
+                      sidebarLayout(
+                        sidebarPanel(
+                          selectInput("alpha", "Wybierz poziom istotności:", choices = c(.01,.05,.1,.2)),
+                         
+                          selectInput("length", "Wybierz wielkość próbki:",choices = seq(15,30,by=2))
+                        ),
+                        
+                        mainPanel(
+                          plotOutput("MULTI")
+                        )
+                      ))
+             
+  ))))
+
+server <- function(input, output) {
+  dane<-reactive({
+    multitests <- which(frames_test$Poziom_Istotnosci == input$alpha & frames_test$Dlugosc_Proby == input$length)
+    
+                
+    short<-frames_test[multitests,]                    
+  
+    short$newcolumn<-sapply(1:nrow(short),function(i){
+      mean(short[i,4],short[i,5],short[i,6])
+    })
+    colnames(short)[7]<-"Moc"
+    dane<-short
+    dane
+    
+  })
+   output$MULTI <- renderPlot({
+ ggplot(dane()) +
+  labs(title = "Zestawienie") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+        geom_line(aes(x = Stopnie_Swobody , y=Moc ))+
+  geom_line(aes(x = Stopnie_Swobody , y=Moc_Testu_Jarque_Berq,color="JB" ))+
+  geom_line(aes(x = Stopnie_Swobody , y=Moc_Testu_Kolomogorowa,color="KOL" ))+
+  geom_line(aes(x = Stopnie_Swobody , y=Moc_Testu_Shapiro_Wilka,color="SH"))
+       
+  })
+}
+```
+```{r echo = FALSE}
+shinyApp(ui = ui, server = server, options= list(height=600))
+```
+
+#Interpretacja i wnioski
+
+##Hipotezy:
+
+###Zmiana długości próby. 
+
+
+Brak podstaw do odrzucenia hipotezy zerowej.
+Dla tej hipotezy oznacza to, że w przypadku zwiększenia długości próby ___sample_length___
+wzrasta moc testu.
+
+
+###Zmiana ilości stopni swobody. 
+
+
+Brak podstaw do odrzucenia hipotezy zerowej.
+Dla tej hipotezy oznacza to, że w przypadku zwiększenia stopni swobody ___stp_swb___
+maleje moc testu.
+
+###Zmiana poziomu istotności.  
+ 
+
+Brak podstaw do odrzucenia hipotezy zerowej.
+Dla tej hipotezy oznacza to, że w przypadku zwiększenia poziomu istotności  ___alpha___
+wzrasta moc testu.
+
+##Interpretacja wykresów:
+
+Na załączonych wykresach zauważyć możemy, że moc testu jest tym większa im większa jest długość próby, gdyż kolory mocy o wyższych wartościach ___sample_length___ znajdują się w wyższych partiach wykresów.
+
+Podobne wnioski wysuwamy na temat poziomu istotności ___alpha___. Im większa jest ta wartość tym linia wykresu znajduje się wyżej.
+
+Jeżeli chodzi o stopnie swobody ___stp_swb___, ich obecność ma znaczny wpływ na moc każdego z tych testów. Wyraźnie możemy zauważyć że wraz ze wzrostem liczby stopni swobody moc każdego z testów zmniejsza się.
+
+
+##Wnioski z aplikacji SHINY:
+
+W zestawieniu wszystkich trzech testów: Jarque-Bera, Shapiro-Wilka, Kołmogorowa-Smirnowa, po wybraniu odpowiednio poziomu istotności, oraz wielkości próbki możemy zauważyć następujące obserwacje:
+
++ najmocniejszym z testów jest test Shapiro-Wilka, kolejnym Jarque-Bera, a najsłabszym Kołmogorowa-Smirnova.
+
+
+##Możliwe Uproszczenia
+
++ mała długość próbki.
++ mała liczba symulacji.
++ uproszczona wizualizacja mocy testów, może wpłynąć na miarodajność analizy ich mocy.
